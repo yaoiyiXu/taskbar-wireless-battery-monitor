@@ -114,7 +114,16 @@ parts.append('namespace wb_poll {\n' + strip_includes(read('src/devices.cpp')) +
 parts.append('std::vector<DeviceStatus> PollAllDevices() { return wb_poll::PollAllDevices(); }\nstd::wstring DumpHidCollections() { return wb_poll::DumpHidCollections(); }\n')
 
 widget = strip_includes(read('src/widget.cpp')).replace('MakeFont(Px(13),', 'MakeFont(Px(ModConfig::fontSize.load()),').replace('Px(14) : 0;', 'Px(ModConfig::gap.load()) : 0;')
-parts.append('namespace wb_render { namespace widget { bool Create(HINSTANCE,HWND,UINT,bool); void Destroy(); bool Alive(); void SetItems(const std::vector<WidgetItem>&,const std::wstring&); void SetLightTheme(bool); bool Reposition(); }\n' + widget + '\n}\n')
+parts.append('''namespace wb_render {
+namespace widget {
+bool Create(HINSTANCE, HWND, UINT, bool);
+void Destroy();
+bool Alive();
+void SetItems(const std::vector<WidgetItem>&, const std::wstring&);
+void SetLightTheme(bool);
+bool Reposition();
+}
+''' + widget + '\n}\n')
 parts.append('''namespace widget {
 bool Create(HINSTANCE i, HWND w, UINT m, bool l) { return wb_render::widget::Create(i,w,m,l); }
 void Destroy() { wb_render::widget::Destroy(); }

@@ -7,8 +7,6 @@
 // @github          https://github.com/yaoiyiXu
 // @homepage        https://github.com/yaoiyiXu/taskbar-wireless-battery-monitor
 // @include         windhawk.exe
-// @architecture    x86
-// @architecture    x86-64
 // @license         GPL-3.0-or-later
 // @compilerOptions -lhid -lsetupapi -lcfgmgr32 -lole32 -lcomctl32 -lgdi32 -lruntimeobject -lshell32 -ladvapi32
 // ==/WindhawkMod==
