@@ -2,11 +2,12 @@
 // @id              taskbar-wireless-battery-monitor
 // @name            任务栏无线设备电量监控
 // @description     显示多品牌无线外设与 AirPods 附近广播电量，在独立宿主运行。
-// @version         0.1.0
+// @version         0.1.1
 // @author          yaoiyiXu
 // @github          https://github.com/yaoiyiXu
 // @homepage        https://github.com/yaoiyiXu/taskbar-wireless-battery-monitor
 // @include         windhawk.exe
+// @architecture    x86
 // @architecture    x86-64
 // @license         GPL-3.0-or-later
 // @compilerOptions -lhid -lsetupapi -lcfgmgr32 -lole32 -lcomctl32 -lgdi32 -lruntimeobject -lshell32 -ladvapi32
@@ -30,7 +31,7 @@ AirPods 电量约 10% 一档。充电盒读数可能需要在电脑旁开盖。
 30 秒以上未更新的数据在下一次刷新时标成历史，约两分钟无广播后移除。
 
 此测试版包含所有现有原生协议驱动；暂不调用外部 HeadsetControl 扩展。
-首版限 Windows x64；多显示器、任务栏布局与其他模组的组合需要验证。
+包含 x86 和 x64 宿主支持；多显示器、任务栏布局与其他模组的组合需要验证。
 
 来源与许可证：GNU GPL v3.0 or later。
 上游：https://github.com/krisgfx9/Wireless-Device-Battery-Monitor
