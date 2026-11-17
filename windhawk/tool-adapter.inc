@@ -9,11 +9,11 @@ HMODULE module = nullptr;
 DWORD WINAPI Run(LPVOID) {
     MSG msg;
     PeekMessageW(&msg, nullptr, WM_USER, WM_USER, PM_NOREMOVE);
-    int result = wb_app::wWinMain(module, nullptr, const_cast<PWSTR>(L""), 0);
+    int result = wb_app::Run(module);
     window = nullptr;
     UnregisterClassW(L"TaskbarWirelessBatteryWidget", module);
     UnregisterClassW(L"TaskbarWirelessBatteryWnd", module);
-    Wh_Log(L"电量界面线程结束，结果=%d", result);
+    Wh_Log(L"Battery UI thread exited, result=%d", result);
     return 0;
 }
 }
@@ -22,7 +22,7 @@ BOOL WhTool_ModInit() {
     HANDLE existing = OpenMutexW(SYNCHRONIZE, FALSE, L"Local\\TaskbarWirelessBatteryTray");
     if (existing) {
         CloseHandle(existing);
-        Wh_Log(L"请先退出独立版 WirelessBattery.exe，再启用此模组。");
+        Wh_Log(L"Exit the standalone WirelessBattery.exe before enabling this mod.");
         return FALSE;
     }
     ModConfig::Load();
@@ -31,7 +31,7 @@ BOOL WhTool_ModInit() {
     ModHost::stopRequested = false;
     ModHost::uiThread = CreateThread(nullptr, 0, ModHost::Run, nullptr, 0, &ModHost::uiThreadId);
     if (!ModHost::uiThread) return FALSE;
-    Wh_Log(L"任务栏无线设备电量监控已启动，宿主 PID=%lu", GetCurrentProcessId());
+    Wh_Log(L"Taskbar Wireless Battery Monitor started, host PID=%lu", GetCurrentProcessId());
     return TRUE;
 }
 

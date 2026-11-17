@@ -6,7 +6,7 @@
 
 本项目基于 [Wireless Battery](https://github.com/krisgfx9/Wireless-Device-Battery-Monitor) 和社区 [简体中文 PR #43](https://github.com/krisgfx9/Wireless-Device-Battery-Monitor/pull/43) 制作，是独立中文衍生版。保留原作者、贡献者、协议来源及 GPL-3.0-or-later 许可证，详见 [来源说明](NOTICE.md)。
 
-## Windhawk 模组（0.1.1 测试版）
+## Windhawk 模组（0.1.2）
 
 也可通过 Windhawk 管理本工具的启停和设置。模组在独立宿主中运行，保留内置厂商协议和 AirPods 广播解析，暂不调用外部 HeadsetControl。
 
@@ -14,7 +14,9 @@
 - [本地安装与验证说明](windhawk/本地安装与验证.md)：安装前先退出独立版，避免重复运行。
 - [源码生成脚本](scripts/build-windhawk.py)和[本地编译检查脚本](scripts/test-windhawk-build.ps1)：维护多文件源码并生成单个 `.wh.cpp`。
 
-已完成 x86 / x64 编译、链接，以及 Windhawk 1.7.3 的本地加载验证；用户反馈基本运行正常。其他系统、设备和任务栏组合仍需验证。此版本尚未提交 Windhawk 官方目录审核。
+已提交 [Windhawk 官方目录审核（PR #7564）](https://github.com/ramensoftware/windhawk-mods/pull/7564)，尚未正式收录。0.1.2 按系统语言选择中文或英文，修复便携版隐藏设备配置，AirPods 广播接收默认关闭，需要在模组设置中手动开启。
+
+0.1.1 已在 Windhawk 1.7.3 中通过本地加载验证，用户反馈基本运行正常。0.1.2 已完成 x86 / x64 编译，以及中英文显示、INI 跨进程保存与恢复、旧配置迁移和实例互斥回归检查；其他系统、设备和任务栏组合仍需验证。
 
 ## 功能
 

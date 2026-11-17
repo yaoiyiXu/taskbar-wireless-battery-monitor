@@ -23,11 +23,18 @@ foreach ($arch in @('32', '64')) {
     if ($LASTEXITCODE) { throw "Windhawk $arch-bit DLL build failed" }
     Write-Host "Windhawk $arch-bit DLL compilation and link passed."
 }
+$runtime = Join-Path $WindhawkDir 'Compiler\x86_64-w64-mingw32\bin'
+Copy-Item -LiteralPath (Join-Path $runtime 'libc++.dll') -Destination 'build\libc++.whl' -Force
+Copy-Item -LiteralPath (Join-Path $runtime 'libunwind.dll') -Destination 'build\libunwind.whl' -Force
+& $compiler @flags -DWH_EDITING -municode tests/windhawk_regression_test.cpp @libs -o build/windhawk-regression-test.exe
+if ($LASTEXITCODE) { throw 'Windhawk regression test build failed' }
+$taskTestIni = Join-Path $PWD 'build\windhawk-regression.ini'
+foreach ($mode in @('--save', '--load', '--legacy', '--load')) {
+    & ./build/windhawk-regression-test.exe $mode $taskTestIni
+    if ($LASTEXITCODE) { throw "Windhawk regression test failed: $mode" }
+}
 if ($BuildProbe) {
     & $compiler @flags -DWH_EDITING -municode tests/windhawk_probe.cpp @libs -o build/windhawk-probe.exe
     if ($LASTEXITCODE) { throw 'Windhawk probe build failed' }
-    $runtime = Join-Path $WindhawkDir 'Compiler\x86_64-w64-mingw32\bin'
-    Copy-Item -LiteralPath (Join-Path $runtime 'libc++.dll') -Destination 'build\libc++.whl' -Force
-    Copy-Item -LiteralPath (Join-Path $runtime 'libunwind.dll') -Destination 'build\libunwind.whl' -Force
     Write-Host 'Probe executable built. Run with Windhawk Compiler bin directories on PATH.'
 }

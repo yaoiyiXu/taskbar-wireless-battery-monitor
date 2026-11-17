@@ -3,14 +3,17 @@
 #include <iostream>
 
 int wmain() {
-    auto text = DiagnoseAirPods(12);
-    int n = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), (int)text.size(), nullptr, 0, nullptr, nullptr);
-    std::string utf8(n, 0);
-    WideCharToMultiByte(CP_UTF8, 0, text.c_str(), (int)text.size(), utf8.data(), n, nullptr, nullptr);
-    std::cout << utf8;
+    ModConfig::airpodsEnabled = true; // Hardware probe explicitly opts into BLE reception.
     StartAirPods();
+    Sleep(12000);
+    auto& receiver = wb_driver_airpods::GetReceiver();
+    WindhawkAirPodsAbi::BluetoothLEAdvertisementWatcherStatus status =
+        WindhawkAirPodsAbi::BluetoothLEAdvertisementWatcherStatus_Aborted;
+    if (receiver.watcher) receiver.watcher->get_Status(&status);
+    bool started = status == WindhawkAirPodsAbi::BluetoothLEAdvertisementWatcherStatus_Started;
+    std::cout << "BLE status=" << (int)status << ", HRESULT=" << (unsigned long)receiver.error << "\n";
     auto devices = PollAllDevices();
     std::cout << "Native engine devices: " << devices.size() << "\n";
     StopAirPods();
-    return text.find(L"BLE status=1, HRESULT=0x00000000") != std::wstring::npos ? 0 : 1;
+    return started ? 0 : 1;
 }
