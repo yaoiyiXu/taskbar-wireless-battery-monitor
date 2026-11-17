@@ -1,0 +1,81 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+# Read-only by default: builds of pull requests cannot change the repository or releases.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      # Actions are pinned to exact commits so a moved tag cannot swap in different code.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc make
+
+      - name: Build WirelessBattery.exe
+        shell: msys2 {0}
+        run: make
+
+      - name: Test Rapoo and MCHOSE protocols and drivers
+        shell: msys2 {0}
+        run: make test
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer and portable zip
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.Substring(1) } else { '0.0.0' }
+          ./installer/build-installer.ps1 -Version $version
+
+      - name: Fetch HeadsetControl source (GPL corresponding source for the bundled binary)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/Sapd/HeadsetControl/releases/download/4.3.0/headsetcontrol-4.3.0.tar.gz -OutFile dist/headsetcontrol-4.3.0.tar.gz
+          if ((Get-FileHash dist/headsetcontrol-4.3.0.tar.gz -Algorithm SHA256).Hash -ne '918dcacf8aef347744b36b2d259d76880fa64b3869f0f8ef26b6576b873d28a7') { throw 'checksum mismatch' }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: WirelessBattery
+          path: dist/*
+
+  # Only this job can publish, and only for version tags pushed by the maintainer.
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: WirelessBattery
+          path: dist
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          name: '任务栏无线设备电量监控 ${{ github.ref_name }}'
+          body: |
+            简体中文 Windows 10/11 无线外设电量工具。
+
+            安装版：WirelessBattery-Setup-*.exe
+            便携版：WirelessBattery-*-portable.zip（解压后运行 WirelessBattery.exe）
+
+            支持范围和限制请阅读 README.md。并非所有列出的设备均经过实机验证。
+            程序未签名，Windows 可能显示 SmartScreen 提示。
+
+            基于 Wireless Battery 和社区简体中文适配，遵循 GPL-3.0-or-later。
+            本项目对应源码请下载本页 Source code，HeadsetControl 对应源码见随附 tar.gz。
+          files: dist/*

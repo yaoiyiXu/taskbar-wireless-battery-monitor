@@ -1,0 +1,9 @@
+# Every change needs the maintainer's review (enforced when "Require review from Code Owners" is on).
+* @krisgfx9
+
+# Extra care: these files control how the app is built, checked and released.
+/.github/   @krisgfx9
+/installer/ @krisgfx9
+/scripts/   @krisgfx9
+/build.bat  @krisgfx9
+/Makefile   @krisgfx9
