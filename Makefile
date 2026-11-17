@@ -25,6 +25,8 @@ clean:
 
 test:
 	@mkdir -p build
+	$(CXX) $(CXXFLAGS) tests/airpods_protocol_test.cpp -o build/airpods_protocol_test.exe
+	./build/airpods_protocol_test.exe
 	$(CXX) $(CXXFLAGS) tests/mchose_driver_test.cpp src/drivers/mchose.cpp -o build/mchose_driver_test.exe
 	./build/mchose_driver_test.exe
 	$(CXX) -finput-charset=UTF-8 -fexec-charset=UTF-8 -std=c++17 -O2 -Wall tests/rapoo_protocol_test.cpp -o build/rapoo_protocol_test.exe

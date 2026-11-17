@@ -68,4 +68,5 @@ void PollGameSir(PollContext& ctx);    // Nova Lite / Nova 2 / Nova 2 Lite
 void PollHeadsetControl(PollContext& ctx);  // only if headsetcontrol.exe is installed
 void PollGenericHid(PollContext& ctx);
 void PollBluetooth(PollContext& ctx);
+void PollAirPods(PollContext& ctx);
 void PollXInput(PollContext& ctx);

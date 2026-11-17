@@ -27,7 +27,7 @@ jobs:
         shell: msys2 {0}
         run: make
 
-      - name: Test Rapoo and MCHOSE protocols and drivers
+      - name: Test AirPods, Rapoo and MCHOSE protocols and drivers
         shell: msys2 {0}
         run: make test
 
@@ -69,6 +69,8 @@ jobs:
           name: '任务栏无线设备电量监控 ${{ github.ref_name }}'
           body: |
             简体中文 Windows 10/11 无线外设电量工具。
+
+            新增 AirPods 附近广播电量：约 10% 一档，悬停查看左右耳和充电盒。广播归属未经验证，不代表与已配对设备完成绑定。
 
             安装版：WirelessBattery-Setup-*.exe
             便携版：WirelessBattery-*-portable.zip（解压后运行 WirelessBattery.exe）

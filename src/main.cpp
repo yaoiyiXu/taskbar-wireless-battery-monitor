@@ -15,6 +15,7 @@
 #include "devices.h"
 #include "widget.h"
 #include "localization.h"
+#include "drivers/airpods.h"
 
 namespace {
 
@@ -37,7 +38,7 @@ const wchar_t* kSettingsKey = L"Software\\TaskbarWirelessBattery";
 
 HINSTANCE g_inst;
 HWND g_hwnd;
-HANDLE g_refreshEvt, g_stopEvt, g_worker;
+HANDLE g_refreshEvt, g_stopEvt, g_worker, g_airpodsEvt;
 UINT g_taskbarCreatedMsg;
 bool g_lightTaskbar;
 bool g_wantWidget = true;      // user's choice: taskbar widget (default) or tray icons
@@ -259,7 +260,7 @@ void CopyTip(wchar_t* dst, size_t cap, const std::wstring& s) {
     dst[cap - 1] = 0;
 }
 
-std::wstring StatusText(const TrayEntry& e) {
+std::wstring StatusText(const TrayEntry& e, bool details = true) {
     const auto& s = e.st;
     if (!s.connected) return L"已关闭 / 未连接";
     std::wstring t;
@@ -269,6 +270,7 @@ std::wstring StatusText(const TrayEntry& e) {
     else t = L"未知";
     if (s.charging) t += L"，充电中";
     if (s.asleep) t += L"，休眠中";
+    if (details && !s.detailText.empty()) t += L"\n" + s.detailText;
     return t;
 }
 
@@ -341,7 +343,8 @@ void ApplyEntry(TrayEntry& e) {
     if (!s.charging && s.percent >= 0 && s.percent <= LOW_BATTERY && !e.lowWarned) {
         e.lowWarned = true;
         infoTitle = L"电量不足";
-        info = zh::Text(s.name) + L" 的剩余电量为 " + std::to_wstring(s.percent) + L"%";
+        info = zh::Text(s.name) + L" 的剩余电量为 " +
+            (s.levelText.empty() ? std::to_wstring(s.percent) + L"%" : zh::Text(s.levelText));
     }
     TrayCall(e.added ? NIM_MODIFY : NIM_ADD, e.uid, e.icon, tip, infoTitle, info);
     e.added = true;
@@ -471,7 +474,7 @@ void ShowMenu() {
     if (g_entries.empty()) AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L"未找到可读取电量的设备");
     else AppendMenuW(m, MF_STRING | MF_GRAYED, 0, L"点击设备可显示或隐藏");
     for (auto& [k, e] : g_entries) {
-        std::wstring line = zh::Text(e.st.name) + L":  " + StatusText(e) + L"   [" + zh::Text(e.st.via) + L"]";
+        std::wstring line = zh::Text(e.st.name) + L":  " + StatusText(e, false) + L"   [" + zh::Text(e.st.via) + L"]";
         AppendMenuW(m, MF_STRING | (IsHidden(k) ? 0 : MF_CHECKED), ID_DEVICE_FIRST + (UINT)keys.size(), line.c_str());
         keys.push_back(k);
     }
@@ -514,11 +517,21 @@ void ShowMenu() {
 // ---- worker thread ----------------------------------------------------------------------------
 
 DWORD WINAPI Worker(LPVOID) {
+    auto devices = PollAllDevices();
+    ULONGLONG nextPoll = GetTickCount64() + POLL_INTERVAL_MS;
     for (;;) {
-        auto* v = new std::vector<DeviceStatus>(PollAllDevices());
+        auto* v = new std::vector<DeviceStatus>(devices);
         if (!PostMessageW(g_hwnd, WM_RESULTS, 0, (LPARAM)v)) delete v;
-        HANDLE hs[2] = { g_stopEvt, g_refreshEvt };
-        if (WaitForMultipleObjects(2, hs, FALSE, POLL_INTERVAL_MS) == WAIT_OBJECT_0) return 0;
+        HANDLE hs[3] = { g_stopEvt, g_refreshEvt, g_airpodsEvt };
+        const auto now = GetTickCount64();
+        DWORD reason = WaitForMultipleObjects(3, hs, FALSE, now < nextPoll ? (DWORD)(nextPoll - now) : 0);
+        if (reason == WAIT_OBJECT_0 || reason == WAIT_FAILED) { StopAirPods(); return 0; }
+        if (reason == WAIT_OBJECT_0 + 2) {
+            RefreshAirPods(devices); // BLE reception must not increase polling of other vendors
+        } else {
+            devices = PollAllDevices();
+            nextPoll = GetTickCount64() + POLL_INTERVAL_MS;
+        }
     }
 }
 
@@ -585,7 +598,7 @@ LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 // `WirelessBattery.exe --list` prints what it finds, `--dump` every HID collection.
-int ListToConsole(bool dump) {
+int ListToConsole(bool dump, bool diagnoseAirPods = false) {
     HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
     if (!out || out == INVALID_HANDLE_VALUE) {
         if (AttachConsole(ATTACH_PARENT_PROCESS)) out = CreateFileW(L"CONOUT$", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
@@ -602,10 +615,13 @@ int ListToConsole(bool dump) {
         DWORD w;
         WriteFile(out, u.data(), (DWORD)u.size(), &w, nullptr);
     };
+    if (diagnoseAirPods) { write(DiagnoseAirPods(12)); return 0; }
     if (dump) {
         write(DumpHidCollections());
         return 0;
     }
+    StartAirPods();
+    Sleep(3000);  // give asynchronous BLE advertisements a bounded initial observation window
     auto list = PollAllDevices();
     if (list.empty()) write(L"未找到可读取电量的设备。\n");
     for (auto& s : list) {
@@ -617,14 +633,17 @@ int ListToConsole(bool dump) {
         else line += L"未知";
         if (s.charging) line += L"，充电中";
         if (s.millivolts) line += L", " + std::to_wstring(s.millivolts) + L" mV";
+        if (!s.detailText.empty()) line += L" | " + s.detailText;
         write(line + L"   (" + s.key + L")\n");
     }
+    StopAirPods();
     return 0;
 }
 
 }  // namespace
 
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR cmdLine, int) {
+    if (cmdLine && wcsstr(cmdLine, L"--airpods")) return ListToConsole(false, true);
     if (cmdLine && wcsstr(cmdLine, L"--list")) return ListToConsole(false);
     if (cmdLine && wcsstr(cmdLine, L"--dump")) return ListToConsole(true);
     if (cmdLine && wcsstr(cmdLine, L"--quit")) {  // used by the installer before upgrading/uninstalling
@@ -658,6 +677,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR cmdLine, int) {
 
     g_refreshEvt = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     g_stopEvt = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    g_airpodsEvt = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    SetAirPodsRefreshEvent(g_airpodsEvt);
     g_wantWidget = LoadWidgetMode();
     g_hideLastKnown = LoadHideLastKnown();
     LoadHidden();

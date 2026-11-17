@@ -13,6 +13,7 @@
 - **中文状态提示**：菜单、悬浮提示、休眠/充电状态、低电量通知、命令行及安装界面使用简体中文。
 - **充电与低电量显示**：蓝色闪电表示充电，不超过 15% 时显示红色；托盘模式支持低电量通知。
 - **自动刷新**：默认每 60 秒读取一次，插拔设备或电脑唤醒后自动更新，也可手动刷新。
+- **AirPods 电量**：通过苹果 BLE 广播读取耳机与充电盒电量，不依赖 Windows 的电量属性；悬停可查看左右耳、充电盒及充电状态。
 - **休眠与历史读数**：无法读取新电量时以暗色显示历史值，也可隐藏仅有历史读数的设备。
 - **按设备显示或隐藏**：点击菜单中的设备即可切换，设置自动保存。
 - **可选开机自启动**：通过菜单启用，仅作用于当前用户。
@@ -42,6 +43,7 @@ Windows 11 可能将托盘图标放入折叠区，可将图标拖到任务栏上
 | 耳机 | 部分 Logitech G、Razer BlackShark V3、SteelSeries Arctis / Nova、Corsair、HyperX、Sony INZONE、ATK N9 Pro，以及 HeadsetControl 支持的耳机 |
 | 手柄 | Sony DualShock 4、DualSense、DualSense Edge；Xbox 手柄；部分 GameSir Nova 系列 |
 | 迈从键盘 | MCHOSE G87，限 `41E4:2001` 2.4 GHz 接收器；充电状态、有线、蓝牙和 G87 V2 未验证 |
+| 苹果耳机 | AirPods 1/2/3/4、Pro、Pro 2（Lightning / USB-C）、Pro 3、Max 的已知 proximity 广播标识；按广播解析，除下述接收验证外未逐型号实机验证 |
 | 通用设备 | 暴露标准 HID 电池信息的设备；Windows 本身能读取电量的蓝牙设备 |
 
 上游列出实机验证过的 Glorious Model O Wireless、HyperX Cloud III Wireless、Cooler Master MM712、雷柏 VT3 Max Gen 2 和 Redragon M916 Pro 1K；其他许多型号来自协议资料，尚未逐一实测。本项目保留这些适配，**没有重新验证所有硬件**。
@@ -50,6 +52,10 @@ Windows 11 可能将托盘图标放入折叠区，可将图标拖到任务栏上
 
 ## 已知限制
 
+- **AirPods 广播电量是约 10% 一档的估计值**，任务栏显示“约”；左右耳均有数据时显示较低的一侧，只有盒电量时显示“盒约”。悬停查看各部件，未知值不会当成 0%。
+- AirPods 充电盒的读数依赖开盖等广播时机；首次使用可将充电盒放在电脑旁开盖。超过 30 秒未更新的读数标成历史值，超过 2 分钟移除。
+- BLE 广播使用随机地址，无法验证归属。因此显示为“附近广播”，不会假定它属于某个已配对的设备。同型号附近有多组时仅显示较近的一组，可能读到他人的设备。此版本不提供已验证的设备绑定。
+- 需要蓝牙适配器支持 Windows BLE 广播接收。扫描为被动接收，不修改配对、音频设置或固件；无电量数据时不编造百分比。
 - 任务栏组件仅显示在主显示器上；Windows 11 居中任务栏过于拥挤时可能与应用按钮重叠，可切换托盘模式。
 - 休眠设备可能不响应。部分设备历史读数最多保留 30 分钟，暗色读数不代表实时电量。
 - 蓝牙电量依赖 Windows；Windows 读不到的电量，本工具也不能凭空获取。
@@ -65,6 +71,7 @@ Windows 11 可能将托盘图标放入折叠区，可将图标拖到任务栏上
 .\WirelessBattery.exe --list   # 列出设备和电量，然后退出
 .\WirelessBattery.exe --dump   # 列出 HID 接口，辅助适配
 .\WirelessBattery.exe --quit   # 退出当前中文版实例
+.\WirelessBattery.exe --airpods # 接收 12 秒广播并输出电量诊断，不输出地址或加密载荷
 ```
 
 终端输出使用 Unicode，重定向时使用 UTF-8。反馈兼容性时请附设备型号、连接方式及上述输出，分享前遮盖个人设备标识。
@@ -83,7 +90,7 @@ powershell -ExecutionPolicy Bypass -File scripts/test-windows.ps1
 打包需要 Inno Setup 6.5.0 或更新版本，过程会下载并校验 HeadsetControl 4.3.0：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installer/build-installer.ps1 -Version 1.0.0-zh.1
+powershell -ExecutionPolicy Bypass -File installer/build-installer.ps1 -Version 1.1.0-zh.1
 ```
 
 GitHub Actions 在推送主分支或 PR 时构建、测试并生成安装版与便携版；推送 `v*` 标签时自动发布。发布页同时提供 HeadsetControl 对应源码，本项目源码可下载同一标签的 Source code 归档。

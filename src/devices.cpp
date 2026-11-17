@@ -6,8 +6,10 @@
 
 #include "drivers/drivers.h"
 #include "hid.h"
+#include "drivers/airpods.h"
 
 std::vector<DeviceStatus> PollAllDevices() {
+    StartAirPods();
     PollContext ctx;
     ctx.colls = EnumHid();
     PollGlorious(ctx);
@@ -35,6 +37,7 @@ std::vector<DeviceStatus> PollAllDevices() {
     PollHeadsetControl(ctx);
     PollGenericHid(ctx);
     PollBluetooth(ctx);
+    PollAirPods(ctx);
     PollXInput(ctx);
     return ctx.out;
 }

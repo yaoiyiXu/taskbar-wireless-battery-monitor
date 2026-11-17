@@ -13,6 +13,7 @@ inline std::wstring Text(const std::wstring& value) {
         { L"Good", L"良好" },
         { L"Critical", L"极低" },
         { L"Bluetooth", L"蓝牙" },
+        { L"Apple BLE", L"苹果蓝牙广播" },
         { L"USB cable", L"USB 有线" },
         { L"2.4 GHz receiver", L"2.4 GHz 接收器" },
         { L"USB / Bluetooth", L"USB / 蓝牙" },

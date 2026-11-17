@@ -12,6 +12,7 @@ struct DeviceStatus {
     DeviceKind kind = DeviceKind::Other;
     int  percent    = -1;      // 0..100, or -1 when unknown right now
     std::wstring levelText;    // set when the device only reports coarse levels ("Low", "Full"...)
+    std::wstring detailText;   // optional per-component battery information for tooltips/console
     bool charging   = false;
     bool asleep     = false;   // receiver answered but the device is sleeping (keep last value)
     bool connected  = true;    // false: receiver present, device switched off (hidden)
