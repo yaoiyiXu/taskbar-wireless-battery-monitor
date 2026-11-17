@@ -7,6 +7,7 @@
 - 简体中文及迈从 G87 适配来源：genhaoer66 提交的上游 PR #43，提交 `d52367b40e3390cf713fd11d13fa9539a719ea9d`：https://github.com/krisgfx9/Wireless-Device-Battery-Monitor/pull/43
 - 本版本变更：统一中文项目名称，使用独立的程序实例、设置、自启动和安装标识；增加中文首页、来源说明、版本记录及发布配置。
 - AirPods proximity 字段说明参考 SpriteOvO / AirPodsDesktop 的 `Source/Core/AppleCP.h` 和 `AppleCP.cpp`（GPL-3.0-or-later，Copyright 2021-2022 SpriteOvO）：https://github.com/SpriteOvO/AirPodsDesktop/tree/main/Source/Core 。本项目独立实现原生 WinRT 接收、长度/型号验证、状态管理和显示逻辑。
+- Windhawk 模组的宿主适配参考官方工具型模组代码：https://github.com/ramensoftware/windhawk/wiki/Mods-as-tools:-Running-mods-in-a-dedicated-process 。模组复用本仓库的多文件原生实现，生成源码、兼容接口定义和构建脚本均在本仓库提供，继续遵循 GPL-3.0-or-later。
 
 保留原作者与贡献者署名，并记录对应源提交。原项目的协议研究来源和致谢见 README.en.md 的 Credits。原有设备适配保持原有行为，新增 AirPods 解析不代表所有列出的硬件均已实测。
 
