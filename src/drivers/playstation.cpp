@@ -2,8 +2,8 @@
 // The battery is part of the regular input report:
 //   DualShock 4: USB report 01 byte 30, Bluetooth report 11 byte 32: bits 0-3 level, bit 4 cable
 //   DualSense:   USB report 01 byte 53, Bluetooth report 31 byte 54: bits 0-3 level (0-10), bits 4-7 state
-// Over Bluetooth both controllers send a reduced report until a feature report is read, so we read
-// the calibration report (05) once, which is what games do too.
+// Never enable enhanced Bluetooth reports: doing so breaks legacy DirectInput until power cycling.
+// Bluetooth battery readings require another app to have already enabled full reports.
 // Layout reference: Linux drivers/hid/hid-playstation.c.
 #include "drivers.h"
 
@@ -21,10 +21,6 @@ void PollPlayStation(PollContext& ctx) {
         HidDev d;
         if (!d.Open(c)) continue;
         bool bt = c.inLen() > 64;
-        if (bt) {
-            std::vector<BYTE> f;
-            d.GetFeature(0x05, f);  // switches the controller to full reports
-        }
         std::vector<BYTE> r;
         int pct = -1;
         bool charging = false, found = false;

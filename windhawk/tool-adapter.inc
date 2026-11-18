@@ -19,11 +19,13 @@ DWORD WINAPI Run(LPVOID) {
 }
 
 BOOL WhTool_ModInit() {
-    HANDLE existing = OpenMutexW(SYNCHRONIZE, FALSE, L"Local\\TaskbarWirelessBatteryTray");
-    if (existing) {
-        CloseHandle(existing);
-        Wh_Log(L"Exit the standalone WirelessBattery.exe before enabling this mod.");
-        return FALSE;
+    for (PCWSTR name : {L"Local\\TaskbarWirelessBatteryTray", L"Local\\WirelessBatteryTray"}) {
+        HANDLE existing = OpenMutexW(SYNCHRONIZE, FALSE, name);
+        if (existing) {
+            CloseHandle(existing);
+            Wh_Log(L"Exit both the original and Chinese standalone WirelessBattery.exe before enabling this mod.");
+            return FALSE;
+        }
     }
     ModConfig::Load();
     if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -44,7 +46,11 @@ void WhTool_ModUninit() {
     if (ModHost::uiThread) {
         ModHost::stopRequested = true;
         if (HWND window = ModHost::window.load()) PostMessageW(window, WM_CLOSE, 0, 0);
-        WaitForSingleObject(ModHost::uiThread, INFINITE);
+        if (WaitForSingleObject(ModHost::uiThread, 5000) != WAIT_OBJECT_0) {
+            // Only the dedicated -tool-mod process reaches this callback.
+            // Never return to DLL unload with a live UI/driver thread.
+            ExitProcess(0);
+        }
         CloseHandle(ModHost::uiThread); ModHost::uiThread = nullptr;
     }
 }

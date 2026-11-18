@@ -29,7 +29,7 @@ Copy-Item -LiteralPath (Join-Path $runtime 'libunwind.dll') -Destination 'build\
 & $compiler @flags -DWH_EDITING -municode tests/windhawk_regression_test.cpp @libs -o build/windhawk-regression-test.exe
 if ($LASTEXITCODE) { throw 'Windhawk regression test build failed' }
 $taskTestIni = Join-Path $PWD 'build\windhawk-regression.ini'
-foreach ($mode in @('--save', '--load', '--legacy', '--load')) {
+foreach ($mode in @('--save', '--load', '--legacy', '--load', '--shutdown')) {
     & ./build/windhawk-regression-test.exe $mode $taskTestIni
     if ($LASTEXITCODE) { throw "Windhawk regression test failed: $mode" }
 }

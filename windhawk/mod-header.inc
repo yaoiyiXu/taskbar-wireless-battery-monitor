@@ -4,7 +4,7 @@
 // @name:zh-CN      任务栏无线设备电量监控
 // @description     Show wireless peripheral battery levels on the taskbar or in the system tray.
 // @description:zh-CN 显示多品牌无线外设电量，支持任务栏和托盘显示，以及可选的 AirPods 附近广播接收。
-// @version         0.1.2
+// @version         0.1.3
 // @author          yaoiyiXu
 // @github          https://github.com/yaoiyiXu
 // @homepage        https://github.com/yaoiyiXu/taskbar-wireless-battery-monitor
@@ -25,7 +25,8 @@ device spacing in Windhawk. Windhawk manages startup and enabling/disabling the 
 The interface uses Chinese on Chinese Windows installations and English otherwise.
 
 This tool runs in a dedicated Windhawk process, without injecting into Explorer.
-Exit the standalone WirelessBattery.exe before enabling it. If the display does
+Exit BOTH the original Wireless Battery and this project's Chinese standalone
+WirelessBattery.exe before enabling it. Both standalone mutex names are checked. If the display does
 not start, exit that app and disable/re-enable the mod.
 
 ## Device support and limitations
@@ -36,17 +37,28 @@ not start, exit that app and disable/re-enable the mod.
 - Vendor-specific battery queries send HID output/feature reports, or serial
   commands for supported ATK headsets, to peripherals and read their replies.
   These community-derived protocols have not been verified on every supported
-  model. Some matches use vendor IDs and report sizes rather than exact model IDs.
+  model. The formerly broad Glorious/Hitscan/G-Wolves and Kysona matches now use
+  explicit VID:PID lists; ZOWIE DW queries are limited to 04A5:800A.
+  AJ179/AJ-series and Keychron vendor queries are excluded from this mod until
+  exact PID/protocol pairings are verified. Standard battery fallbacks remain available.
   Queries can conflict with vendor utilities that access a device exclusively.
+- Periodic queries may wake peripherals or prevent their lights from sleeping.
+  Use the **Devices to exclude from queries** setting (hex VID:PID pairs such as
+  28BD:0947,046D:C52B) to stop HID/ATK battery queries for a product on the next
+  poll. This differs from hiding a device in the menu, which only hides its display.
+  Malformed exclusions pause HID/ATK queries until corrected. Digitizer products
+  are excluded automatically. Identification metadata may still be enumerated.
+- Bluetooth PlayStation controllers are only read passively. Full battery reports
+  must already be enabled by another application; this mod never changes their mode.
 - Standard Bluetooth battery readings depend on what Windows exposes.
 - Only the primary, horizontal taskbar is supported. On Windows 11 a crowded or
   left-aligned taskbar can overlap the widget; Windows 10 taskbar resizing can
   flicker. Switch to tray mode if the taskbar layout is unsuitable.
 - In taskbar mode low battery is indicated by red text; notification balloons
   are available in tray mode. Sleep/last-known readings are dimmed.
-- Disabling the mod waits for the active driver query to finish. Remaining
-  drivers are skipped when stopping; an individual device timeout can still
-  take several seconds.
+- Remaining drivers are skipped when stopping. If shutdown has not completed in
+  five seconds (including a stuck synchronous HID call), the dedicated tool
+  process exits; a live driver thread is never left executing in an unloaded DLL.
 
 ## Optional AirPods reception
 
@@ -81,12 +93,15 @@ AirPods 广播接收默认关闭，可在设置中手动开启。电量约 10% �
 超过 30 秒未更新的数据在下一次刷新时标成历史，约两分钟无广播后移除。
 
 厂商协议会向设备发送 HID 查询报文，部分 ATK 耳机使用串口命令。协议来自社区，
-并未逐型号验证，部分驱动根据厂商 ID 和报文长度匹配设备；可能与独占设备的
+并未逐型号验证。原先宽泛的匹配已收紧；AJ179/AJ 系列和 Keychron 的厂商查询暂不包含，
+等待验证精确型号 ID 与协议。查询可能唤醒设备或阻止灯光休眠，也可能与独占设备的
 厂商软件冲突。支持某品牌不代表支持其全部型号，不包含外部 HeadsetControl 扩展。
+可在“排除查询的设备”中填写十六进制 VID:PID，逗号分隔，下次轮询生效。
+菜单隐藏仅影响显示。数位板自动排除；蓝牙 PlayStation 手柄不会被本模组切换模式。
 
 仅支持主显示器的横向任务栏；Windows 11 拥挤或左对齐时可能重叠，Windows 10
 调整任务按钮区域时可能闪烁，可切换托盘模式。任务栏模式通过红字提示低电量，
-托盘模式另有气泡通知。关闭时仍需等待当前设备查询结束，可能耗时数秒。
+托盘模式另有气泡通知。关闭超过五秒时会退出模组的独立宿主进程，避免无限等待。
 */
 // ==/WindhawkModReadme==
 
@@ -121,5 +136,10 @@ AirPods 广播接收默认关闭，可在设置中手动开启。电量约 10% �
   $name:zh-CN: 接收附近 AirPods 电量广播
   $description: Approximate readings; ownership is unverified and nearby people's AirPods may appear.
   $description:zh-CN: 电量为近似值，广播归属未验证，可能显示附近其他人的耳机。
+- ignoreDevices: ""
+  $name: Devices to exclude from queries (VID:PID)
+  $name:zh-CN: 排除查询的设备（VID:PID）
+  $description: "Comma-separated hex IDs, e.g. 28BD:0947,046D:C52B. Stops HID/ATK battery queries on the next poll. Hiding in the menu only hides the display."
+  $description:zh-CN: "十六进制 ID，逗号分隔，例如 28BD:0947,046D:C52B。下次轮询停止 HID/ATK 电量查询；菜单隐藏仅影响显示。"
 */
 // ==/WindhawkModSettings==

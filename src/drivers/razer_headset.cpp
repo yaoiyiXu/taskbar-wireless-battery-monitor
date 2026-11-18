@@ -36,7 +36,7 @@ bool Get(HidDev& d, BYTE cls, std::vector<BYTE>& reply) {
     return false;
 }
 
-struct Cached { ULONGLONG at = 0; DeviceStatus status; bool valid = false; };
+struct Cached { ULONGLONG at = 0; DeviceStatus status; bool valid = false; bool attempted = false; };
 std::map<USHORT, Cached> g_cache;
 
 const wchar_t* Name(USHORT pid) { return (pid == 0x0576 || pid == 0x0577) ? L"Razer BlackShark V3 Pro" : L"Razer BlackShark V3"; }
@@ -49,10 +49,14 @@ void PollRazerHeadsets(PollContext& ctx) {
         auto colls = ctx.Find(0x1532, pid, [](const HidColl& c) { return c.iface == 5 && c.outLen() >= 64 && c.inLen() >= 15; });
         if (colls.empty()) continue;
         Cached& cache = g_cache[pid];
-        if (cache.valid && GetTickCount64() - cache.at < kMinIntervalMs) {
-            ctx.Add(cache.status, 0x1532, pid);
+        if (cache.attempted && GetTickCount64() - cache.at < kMinIntervalMs) {
+            if (cache.valid) ctx.Add(cache.status, 0x1532, pid);
+            else ctx.Claim(0x1532, pid); // prevent the generic Razer driver from retrying
             continue;
         }
+        cache.at = GetTickCount64();
+        cache.attempted = true; // rate-limit failed opens, handshakes and timeouts too
+        ctx.Claim(0x1532, pid);
         HidDev d;
         if (!d.Open(*colls[0])) continue;
         // Handshake the headset expects before reads (init, charging state on both links).
@@ -70,7 +74,8 @@ void PollRazerHeadsets(PollContext& ctx) {
         s.via = L"2.4 GHz receiver";
         s.percent = r[13];
         s.charging = r[14] != 0;
-        cache = { GetTickCount64(), s, true };
+        cache.status = s;
+        cache.valid = true;
         ctx.Add(s, 0x1532, pid);
     }
 }

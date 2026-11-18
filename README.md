@@ -6,9 +6,11 @@
 
 本项目基于 [Wireless Battery](https://github.com/krisgfx9/Wireless-Device-Battery-Monitor) 和社区 [简体中文 PR #43](https://github.com/krisgfx9/Wireless-Device-Battery-Monitor/pull/43) 制作，是独立中文衍生版。保留原作者、贡献者、协议来源及 GPL-3.0-or-later 许可证，详见 [来源说明](NOTICE.md)。
 
-## Windhawk 模组（0.1.2）
+## Windhawk 模组（0.1.3）
 
 也可通过 Windhawk 管理本工具的启停和设置。模组在独立宿主中运行，保留内置厂商协议和 AirPods 广播解析，暂不调用外部 HeadsetControl。
+
+0.1.3 回移数位板和 Razer Synapse 修复，提供按 VID:PID 排除 HID/ATK 查询的设置，移除蓝牙 PlayStation 模式切换，限制失败的 BlackShark 查询频率，并限制独立宿主退出等待。Windhawk 版对原先宽泛的匹配使用明确型号 ID；AJ179/AJ 系列、Keychron 厂商查询暂时排除，标准电量回退仍可用。查询可能阻止设备休眠，菜单隐藏只影响显示，需要停止查询时请使用排除设置。
 
 - [单文件模组源码](windhawk/taskbar-wireless-battery-monitor.wh.cpp)：在 Windhawk 中创建新模组，粘贴完整代码并编译。
 - [本地安装与验证说明](windhawk/本地安装与验证.md)：安装前先退出独立版，避免重复运行。

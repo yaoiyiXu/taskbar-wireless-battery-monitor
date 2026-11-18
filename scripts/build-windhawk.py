@@ -39,7 +39,7 @@ def localize(text):
 
 headers = ['src/devices.h', 'src/hid.h', 'src/drivers/drivers.h', 'src/widget.h',
            'src/localization.h', 'src/drivers/airpods.h', 'src/drivers/airpods_protocol.h', 'src/drivers/rapoo_protocol.h']
-sources = sorted(p for p in (ROOT / 'src/drivers').glob('*.cpp') if p.stem != 'headsetcontrol')
+sources = sorted(p for p in (ROOT / 'src/drivers').glob('*.cpp') if p.stem not in ('headsetcontrol', 'keychron'))
 inputs = [ROOT / p for p in headers] + sources + [ROOT / ('src/' + f) for f in ['hid.cpp', 'devices.cpp', 'widget.cpp', 'main.cpp']]
 all_text = '\n'.join(p.read_text(encoding='utf-8') for p in inputs)
 includes = sorted(set(re.findall(r'^\s*#include\s*<([^>]+)>', all_text, re.M)))
@@ -77,6 +77,8 @@ inline void Load() {
     airpodsEnabled = !!Wh_GetIntSetting(L"enableAirPods");
     auto mode = WindhawkUtils::StringSetting::make(L"displayMode");
     taskbar = wcscmp(mode, L"tray") != 0;
+    auto ignored = WindhawkUtils::StringSetting::make(L"ignoreDevices");
+    ModSafety::ConfigureIgnored(ignored.get());
 }
 }
 namespace ModHost { extern std::atomic<bool> stopRequested; extern std::atomic<HWND> window; }
@@ -95,13 +97,33 @@ for path in headers:
     if path == 'src/drivers/airpods.h':
         header = re.sub(r'^std::wstring DiagnoseAirPods.*\n', '', header, flags=re.M)
     if path == 'src/drivers/drivers.h':
-        header = re.sub(r'^void PollHeadsetControl.*\n', '', header, flags=re.M)
+        header = re.sub(r'^void (?:PollHeadsetControl|PollKeychron).*\n', '', header, flags=re.M)
     parts.append(header)
-parts += [config, strip_includes(read('src/hid.cpp'))]
+hid = strip_includes(read('src/hid.cpp'))
+hid = hid.replace('    return out;\n}', '    ModSafety::Filter(out);\n    return out;\n}', 1)
+hid = hid.replace('    c_ = c;', '    if (ModSafety::IsIgnored(c.vid, c.pid)) return false;\n    c_ = c;')
+parts += [read('windhawk/query-policy.inc'), config, hid]
 public_polls = set(re.findall(r'void (Poll\w+)\(PollContext& ctx\);', read('src/drivers/drivers.h')))
 for path in sources:
     name = path.stem
     text = path.read_text(encoding='utf-8')
+    if name == 'glorious':
+        text = text.replace('            for (const HidColl* c :', '''            // Exact PIDs from the model table and protocol references above.
+            bool known = vid == 0x258A ? GloriousName(pid) != nullptr :
+                         vid == 0x3770 ? (pid == 0x0136 || pid == 0x0194) :
+                         vid == 0x33E4 && pid == 0x3854;
+            if (!known) continue;
+            for (const HidColl* c :''')
+    if name == 'kysona':
+        text = text.replace('            // Kysona exposes', '            if (!ModSafety::KysonaKnown(vid, pid)) continue;\n            // Kysona exposes')
+    if name == 'misc_mice':
+        for function in ('PollAjazz', 'PollAjazzAjSeries'):
+            text = replace_function(text, f'void {function}(', '')
+            text = text.replace(f'    {function}(ctx);', '')
+    if name == 'zowie':
+        text = text.replace('else PollDw(ctx, pid);', 'else if (pid == 0x800A) PollDw(ctx, pid);')
+    if name == 'atk_serial':
+        text = text.replace('    for (const Port& p : FindPorts()) {', '    for (const Port& p : FindPorts()) {\n        if (ModSafety::IsIgnored(0x373B, p.pid)) continue;')
     if name in ('airpods', 'xinput'):
         text = text[text.index('namespace {'):]
     if name == 'airpods':
@@ -141,7 +163,7 @@ void RefreshAirPods(std::vector<DeviceStatus>& v) {{
 ''')
 poll = strip_includes(read('src/devices.cpp'))
 poll = replace_function(poll, 'std::wstring DumpHidCollections()', '')
-poll = re.sub(r'^    PollHeadsetControl\(ctx\);\n', '', poll, flags=re.M)
+poll = re.sub(r'^    (?:PollHeadsetControl|PollKeychron)\(ctx\);[^\n]*\n', '', poll, flags=re.M)
 poll = poll.replace('PollAllDevices()', 'PollAllDevices(HANDLE stopEvent)')
 poll = poll.replace('    StartAirPods();', '    if (stopEvent && WaitForSingleObject(stopEvent, 0) == WAIT_OBJECT_0) return {};\n    StartAirPods();')
 # A stop skips remaining drivers, while each active query retains its own timeout.
@@ -225,7 +247,10 @@ app = app.replace('case WM_RESULTS: {', '''case WM_APP + 80:
             SetEvent(g_refreshEvt);
             return 0;
         case WM_RESULTS: {''')
-app = app.replace('WaitForSingleObject(g_worker, 5000)', 'WaitForSingleObject(g_worker, INFINITE)')
+app = app.replace('if (g_worker) WaitForSingleObject(g_worker, 5000);',
+                  'if (g_worker && WaitForSingleObject(g_worker, 5000) != WAIT_OBJECT_0) {\n'
+                  '                // Dedicated tool host: exit instead of unloading code still running in a driver.\n'
+                  '                ExitProcess(0);\n            }')
 app = app.replace('    HANDLE mutex = CreateMutexW', '    // Shared with WirelessBattery.exe so the standalone app and mod cannot overlap.\n    HANDLE mutex = CreateMutexW')
 app = app.replace('if (GetLastError() == ERROR_ALREADY_EXISTS) return 0;',
                   'if (!mutex) return 1;\n    if (GetLastError() == ERROR_ALREADY_EXISTS) { CloseHandle(mutex); return 0; }')

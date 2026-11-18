@@ -4,6 +4,7 @@ Set-Location (Split-Path $PSScriptRoot -Parent)
 New-Item -ItemType Directory -Force build | Out-Null
 $flags = @('-std=c++17', '-O2', '-Wall', '-static', '-finput-charset=UTF-8', '-fexec-charset=UTF-8', '-D_WIN32_WINNT=0x0A00', '-DWINVER=0x0A00')
 $tests = @(
+    @{ Name = 'query_safety_driver'; Sources = @('tests/query_safety_driver_test.cpp') },
     @{ Name = 'airpods_protocol'; Sources = @('tests/airpods_protocol_test.cpp') },
     @{ Name = 'rapoo_protocol'; Sources = @('tests/rapoo_protocol_test.cpp') },
     @{ Name = 'rapoo_driver'; Sources = @('tests/rapoo_driver_test.cpp', 'src/drivers/rapoo.cpp') },

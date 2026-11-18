@@ -53,7 +53,12 @@ std::wstring StripServiceSuffix(std::wstring n) {
 }  // namespace
 
 void PollGenericHid(PollContext& ctx) {
+    // Backport upstream 99c55b2 / issue #232: never battery-poll drawing tablets.
+    std::set<std::pair<USHORT, USHORT>> digitizers;
+    for (const auto& c : ctx.colls)
+        if (c.page() == 0x0D) digitizers.insert({c.vid, c.pid});
     for (const auto& c : ctx.colls) {
+        if (digitizers.count({c.vid, c.pid})) continue;
         if (ctx.IsClaimed(c.vid, c.pid)) continue;
         if (c.page() == 0x84 || c.page() == 0x85) continue;  // UPS / power supplies
         if (!c.caps.NumberFeatureValueCaps && !c.caps.NumberInputValueCaps) continue;

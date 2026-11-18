@@ -3,12 +3,24 @@
 //   [0] status  [1] transaction id  [2..3] remaining packets  [4] protocol type  [5] data size
 //   [6] command class  [7] command id  [8..87] arguments  [88] crc (xor of 2..87)  [89] reserved
 // Battery: class 07 id 80 -> args[1] = 0..255. Charging: class 07 id 84 -> args[1] = 1.
-// Reply status: 01 busy, 02 ok, 03 failed, 04 timeout (device off), 05 not supported.
-// Different models expect different transaction ids, so the known ones are tried in turn.
+// Reply status: 01 busy, 02 ok, 03 failed, 04 timeout, 05 not supported.
+// Use documented keyboard transaction ids; probe the known ids for other models.
 // Reference: github.com/openrazer/openrazer (protocol documentation in its driver sources).
 #include "drivers.h"
 
 namespace {
+
+BYTE KeyboardBatteryTid(USHORT pid) {
+    // OpenRazer razerkbd_driver.c: razer_attr_read_charge_level / charge_status.
+    switch (pid) {
+        case 0x025C: case 0x0271: case 0x0290: case 0x0296:
+        case 0x02BA: case 0x02D2: case 0x02D5: return 0x9F;  // wireless keyboards
+        case 0x0258: case 0x0292: case 0x0298: case 0x02B9:
+        case 0x02CD: case 0x02D4: case 0x02D7: return 0x1F;  // wired keyboards / Joro
+        case 0x025A: return 0x3F;  // BlackWidow V3 Pro wired
+        default: return 0;
+    }
+}
 
 enum class Rz { Ok, Offline, Unsupported, NoReply };
 
@@ -22,20 +34,28 @@ Rz Command(HidDev& d, BYTE tid, BYTE cls, BYTE id, BYTE size, std::vector<BYTE>&
     BYTE crc = 0;
     for (int i = 2; i < 88; i++) crc ^= r[i];
     r[88] = crc;
-    if (!d.SetFeature(rep)) return Rz::NoReply;
     std::vector<BYTE> resp;
+    bool send = true;
+    Rz res = Rz::NoReply;
     for (int attempt = 0; attempt < 8; attempt++) {
-        Sleep(attempt == 0 ? 15 : 40);
-        if (!d.GetFeature(0, resp) || resp.size() < 91) return Rz::NoReply;
+        if (send && !d.SetFeature(rep)) return Rz::NoReply;
+        // Wireless keyboards need about 5 ms (OpenRazer); a long wait lets Synapse replace the reply.
+        Sleep(KeyboardBatteryTid(d.coll().pid) ? 5 : (attempt == 0 ? 15 : 40));
+        send = true;
+        res = Rz::NoReply;
+        if (!d.GetFeature(0, resp) || resp.size() < 91) continue;
         const BYTE* a = resp.data() + 1;
-        if (a[0] == 0x01) continue;  // busy
-        if (a[6] != cls || a[7] != id) return Rz::NoReply;
+        BYTE replyCrc = 0;
+        for (int i = 2; i < 88; i++) replyCrc ^= a[i];
+        // Synapse shares the feature-report mailbox. A different reply needs a fresh request.
+        if (a[1] != tid || a[2] || a[3] || a[4] || a[5] != size || a[6] != cls || a[7] != id ||
+            a[88] != replyCrc) continue;
+        if (a[0] == 0x01) { send = false; continue; }  // busy: wait for this request to finish
         if (a[0] == 0x02) { args.assign(a + 8, a + 88); return Rz::Ok; }
-        if (a[0] == 0x04) return Rz::Offline;
+        if (a[0] == 0x04) { res = Rz::Offline; continue; }  // retry a transient receiver timeout
         if (a[0] == 0x05 || a[0] == 0x03) return Rz::Unsupported;
-        return Rz::NoReply;
     }
-    return Rz::NoReply;
+    return res;
 }
 
 std::wstring CleanName(std::wstring n) {
@@ -103,7 +123,10 @@ void PollRazer(PollContext& ctx) {
             BYTE tid = 0;
             std::vector<BYTE> args;
             bool sawOffline = false;
-            for (BYTE t : { 0x1F, 0x3F, 0xFF, 0x08, 0x9F }) {
+            BYTE keyboardTid = KeyboardBatteryTid(pid);
+            std::vector<BYTE> tids = keyboardTid ? std::vector<BYTE>{ keyboardTid } :
+                                                  std::vector<BYTE>{ 0x1F, 0x3F, 0xFF, 0x08, 0x9F };
+            for (BYTE t : tids) {
                 Rz r = Command(d, t, 0x07, 0x80, 0x02, args);
                 if (r == Rz::Ok) { res = r; tid = t; break; }
                 sawOffline |= r == Rz::Offline;  // may also mean "wrong transaction id": keep trying
@@ -117,6 +140,7 @@ void PollRazer(PollContext& ctx) {
             s.kind = Kind(ctx.colls, vid, pid);
             if (s.kind == DeviceKind::Other) s.kind = GuessKind(s.name);
             s.via = L"Razer receiver";
+            s.graceSec = 120;  // retain the last reading briefly when Synapse prevents a valid reply
             if (res == Rz::Offline) {
                 s.connected = false;
             } else {
